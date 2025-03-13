@@ -37,7 +37,7 @@ def check_dependencies() -> None:
     try:
         from Wappalyzer import Wappalyzer, WebPage
     except ImportError:
-        missing.append("python-Wappalyzer")
+        missing.append("wappalyzer")
     try:
         from colorama import Fore, Style, init
     except ImportError:
@@ -66,6 +66,8 @@ try:
 except ImportError:
     WAPPALYZER_AVAILABLE = False
     logging.warning("Módulo 'python-Wappalyzer' não disponível.")
+    logging.warning("A detecção de tecnologias web não estará disponível.")
+    logging.warning("Instale com: pip install python-Wappalyzer")
 
 def log(message: str, level: str = 'INFO') -> None:
     """Função centralizada para logging com níveis diferentes."""
@@ -302,6 +304,20 @@ SQL_ERROR_PATTERNS = [
     r"supplied argument is not a valid mysql",
     r"column .* not found",
     r"pg_query\(\): query failed"
+    r"pg_exec\(\): query failed"
+    r"pg_cmdtuples\(\): query failed"
+    r"pg_numrows\(\): query failed"
+    r"pg_fetch_array\(\): query failed"
+    r"pg_fetch_object\(\): query failed"
+    r"pg_result\(\): query failed"
+    r"pg_fetch_result\(\): query failed"
+    r"pg_result_error\(\): query failed"
+    r"pg_last_error\(\): query failed"
+    r"pg_errormessage\(\): query failed"
+    r"pg_last_notice\(\): query failed"
+    r"pg_last_oid\(\): query failed"
+    r"pg_lo_import\(\): query failed"
+    r"pg_lo_export\(\): query failed"
 ]
 
 # Padrões para detecção de XSS
@@ -312,12 +328,24 @@ XSS_PATTERNS = [
     r"onload=",
     r"onclick=",
     r"onmouseover="
+    r"window.location=",
+    r"document.location=",
+    r"document"
+    "document.cookie"
+    "document.write"
+    "document.writeln"
+    "eval"
+    "location"
+    "location.href"
+    "location.search"
 ]
 
 def check_sql_errors(response_text: str) -> bool:
     """Verifica se a resposta contém mensagens de erro SQL."""
     for pattern in SQL_ERROR_PATTERNS:
+
         if re.search(pattern, response_text, re.IGNORECASE):
+
             return True
     return False
 
@@ -329,6 +357,7 @@ def check_xss_reflection(response_text: str, payload: str) -> bool:
         sanitized = re.sub(r"]*>", "", payload)
         if sanitized != payload and payload in response_text:
             return True
+        
     return False
 
 def analyze_http_headers(headers: Dict[str, str]) -> List[str]:
@@ -371,6 +400,7 @@ def detect_waf(response: CurlResponse) -> Optional[str]:
         "Wordfence": ["wordfence"],
         "AWS WAF": ["aws-waf"],
         "Barracuda": ["barracuda"]
+
     }
     
     headers_str = str(response.headers).lower()
@@ -391,3 +421,35 @@ def detect_waf(response: CurlResponse) -> Optional[str]:
 class ResponseAnalyzer:
     @staticmethod
     def compare_responses(resp1: CurlResponse, resp2: CurlResponse) -> Dict[str, Any]:
+        """Compara duas respostas HTTP e retorna diferenças significativas."""
+        diff = {}
+        if resp1.status_code != resp2.status_code:
+            diff["status_code"] = (resp1.status_code, resp2.status_code)
+        if resp1.headers != resp2.headers:
+            diff["headers"] = difflib.ndiff(json.dumps(resp1.headers, indent=2).splitlines(), 
+                                            json.dumps(resp2.headers, indent=2).splitlines())
+        if resp1.text != resp2.text:
+            diff["text"] = list(difflib.unified_diff(resp1.text.splitlines(), resp2.text.splitlines()))
+        return diff
+def compare_responses(resp1: CurlResponse, resp2: CurlResponse) -> Dict[str, Any]:
+
+    diff = {}
+    if resp1.status_code != resp2.status_code:
+        diff["status_code"] = (resp1.status_code, resp2.status_code)
+    if resp1.headers != resp2.headers:
+        diff["headers"] = difflib.ndiff(json.dumps(resp1.headers, indent=2).splitlines(), 
+                                        json.dumps(resp2.headers, indent=2).splitlines())
+    if resp1.text != resp2.text:
+        diff["text"] = list(difflib.unified_diff(resp1.text.splitlines(), resp2.text.splitlines()))
+    return diff
+
+KeyboardInterrupt = True
+def signal_handler(sig, frame):
+    global KeyboardInterrupt
+    KeyboardInterrupt = True
+    log("Sinal de interrupção recebido. Encerrando...", level="WARNING")
+    sys.exit(0)
+
+
+
+
