@@ -1,18 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Ferramenta avançada e extensível para auditoria de segurança em sites.
-Este código inclui:
- - Mapeamento de URLs e formulários
- - Validação de entradas
- - Injeção de payloads com mutações avançadas
- - Análise de respostas do servidor
- - Logs e relatórios em formatos configuráveis
-
-Uso estritamente autorizado e ético.
-"""
-
 import requests
 from bs4 import BeautifulSoup
 import re
